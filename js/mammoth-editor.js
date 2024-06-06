@@ -11,13 +11,13 @@ function setUpMammoth() {
     var uploadElement = document.getElementById("mammoth-docx-upload");
     var visualPreviewElement = document.getElementById("mammoth-docx-visual-preview");
 
-    uploadElement.addEventListener('change', function(event) {
+    uploadElement.addEventListener('change', function (event) {
         parentElement.className = "status-loading";
         handleFileSelect(event);
     }, false);
 
     function convertToHtml(input, options) {
-        var fullOptions = {prettyPrint: true};
+        var fullOptions = { prettyPrint: true };
         for (var key in options) {
             fullOptions[key] = options[key];
         }
@@ -28,14 +28,23 @@ function setUpMammoth() {
                 fullOptions[key] = customOptions[key];
             }
         }
-        return mammoth.convertToHtml(input, fullOptions);
+        return mammoth.convertToHtml(input, fullOptions)
+            .then(function (result) {
+                var html = result.value.replace(/\uEC03(.*?)\uEC02/gs, function (match, code) {
+                    return "<code>" + code.trim() + "</code>";
+                });
+                return {
+                    value: html,
+                    messages: result.messages
+                };
+            });
     }
 
     function handleFileSelect(event) {
-        readFileInputEventAsArrayBuffer(event, function(arrayBuffer) {
+        readFileInputEventAsArrayBuffer(event, function (arrayBuffer) {
             latestDocumentArrayBuffer = arrayBuffer;
-            convertToHtml({arrayBuffer: arrayBuffer})
-                .then(function(result) {
+            convertToHtml({ arrayBuffer: arrayBuffer })
+                .then(function (result) {
                     showResult(result);
                 })
                 .then(null, showError);
@@ -47,7 +56,7 @@ function setUpMammoth() {
 
         var reader = new FileReader();
 
-        reader.onload = function(loadEvent) {
+        reader.onload = function (loadEvent) {
             var arrayBuffer = loadEvent.target.result;
             callback(arrayBuffer);
         };
@@ -62,16 +71,16 @@ function setUpMammoth() {
         var postId = document.getElementById("post_ID").value;
         var lastImageNumber = 0;
         var options = {
-            convertImage: mammoth.images.inline(function(element) {
+            convertImage: mammoth.images.inline(function (element) {
                 var imageNumber = ++lastImageNumber;
-                return element.readAsArrayBuffer().then(function(imageArrayBuffer) {
-                    var filename = generateFilename(element, {postId: postId, imageNumber: imageNumber});
+                return element.readAsArrayBuffer().then(function (imageArrayBuffer) {
+                    var filename = generateFilename(element, { postId: postId, imageNumber: imageNumber });
                     return uploadImage({
                         filename: filename,
                         contentType: element.contentType,
                         arrayBuffer: imageArrayBuffer
                     });
-                }).then(function(uploadResult) {
+                }).then(function (uploadResult) {
                     if (element.altText) {
                         setImageAltText({
                             id: uploadResult.data.id,
@@ -88,8 +97,8 @@ function setUpMammoth() {
             idPrefix: "post-" + postId + "-"
         };
         parentElement.classList.add("status-inserting");
-        convertToHtml({arrayBuffer: latestDocumentArrayBuffer}, options)
-            .then(function(result) {
+        convertToHtml({ arrayBuffer: latestDocumentArrayBuffer }, options)
+            .then(function (result) {
                 insertTextIntoEditor(result.value);
                 showMessages(result.messages);
                 parentElement.classList.remove("status-inserting");
@@ -97,7 +106,7 @@ function setUpMammoth() {
             .then(null, showError);
     }
 
-    var slugCharmap = jQuery.extend({}, slug.charmap, {".": "-", "\\": "-", "/": "-"});
+    var slugCharmap = jQuery.extend({}, slug.charmap, { ".": "-", "\\": "-", "/": "-" });
     var slugOptions = {
         mode: "rfc3986",
         charmap: slugCharmap
@@ -119,25 +128,25 @@ function setUpMammoth() {
         formData.append("post_id", document.getElementById("post_ID").value);
         var nonce = document.getElementById("mammoth-docx-upload-image-nonce").value;
         formData.append("_wpnonce", nonce);
-        var imageBlob = new Blob([imageArrayBuffer], {type: contentType});
+        var imageBlob = new Blob([imageArrayBuffer], { type: contentType });
         formData.append("async-upload", imageBlob, filename);
         return fetch(document.getElementById("mammoth-docx-upload-image-href").value, {
             method: "POST",
             body: formData,
             dataType: "json"
-        }).then(function(response) {
+        }).then(function (response) {
             if (response.ok) {
                 return response.json();
             } else {
                 throw new Error(response.statusText);
             }
-        }).then(function(uploadResult) {
+        }).then(function (uploadResult) {
             if (uploadResult.success !== false) {
                 return uploadResult;
             } else {
                 return rejectImage(uploadResult.data.message);
             }
-        }, function(error) {
+        }, function (error) {
             return rejectImage(error.toString());
         });
     }
@@ -181,7 +190,7 @@ function setUpMammoth() {
             // This code previously checked if wp.blocks was defined, but this
             // seems to be unreliable when some plugins are installed, such as
             // Yoast.
-            var block = wp.blocks.createBlock("core/freeform", {content: text});
+            var block = wp.blocks.createBlock("core/freeform", { content: text });
             wp.data.dispatch("core/editor").insertBlocks(block);
         } else if (window.tinyMCE && tinyMCE.get(elementId) && !tinyMCE.get(elementId).isHidden()) {
             // This reimplements mceInsertRawHTML due to a bug in tinyMCE:
@@ -189,7 +198,7 @@ function setUpMammoth() {
             var editor = tinyMCE.get(elementId);
             var placeholder = "tiny_mce_marker_" + Math.random().toString().replace(/\./g, "");
             editor.selection.setContent(placeholder);
-            editor.setContent(editor.getContent().replace(new RegExp(placeholder, "g"), function() {
+            editor.setContent(editor.getContent().replace(new RegExp(placeholder, "g"), function () {
                 return text;
             }));
         } else {
@@ -227,10 +236,10 @@ function setUpMammoth() {
     function showMessages(messages) {
         if (messages.length) {
             var messageElements = messages
-                .filter(function(message) {
+                .filter(function (message) {
                     return message.message;
                 })
-                .map(function(message) {
+                .map(function (message) {
                     return "<li>" + capitalise(message.type) + ": " + escapeHtml(message.message) + "</li>";
                 })
                 .join("");
@@ -276,7 +285,7 @@ function setUpMammoth() {
         var visualPreviewDocument = visualPreviewElement.contentDocument;
         visualPreviewDocument.body.style.backgroundColor = "white";
         var stylesheets = visualPreviewElement.getAttribute("data-stylesheets").split(",");
-        stylesheets.forEach(function(stylesheet) {
+        stylesheets.forEach(function (stylesheet) {
             var element = document.createElement("link");
             element.rel = "stylesheet";
             element.type = "text/css";
